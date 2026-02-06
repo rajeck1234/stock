@@ -1,21 +1,44 @@
 from flask import Flask, jsonify, request
 import yfinance as yf
+import pandas as pd
 
 app = Flask(__name__)
 
-@app.route("/api/stocks")
-def stocks():
-    symbols = ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
+stocks = [
+    "RELIANCE.NS",
+    "TCS.NS",
+    "INFY.NS",
+    "HDFCBANK.NS",
+    "ICICIBANK.NS",
+    "ITC.NS"
+]
 
-    data = {}
+@app.route("/stocks")
+def get_stocks():
 
-    for symbol in symbols:
-        ticker = yf.Ticker(symbol)
-        price = ticker.info.get("currentPrice")
-        data[symbol] = price
+    try:
+        data = yf.download(
+            tickers=" ".join(stocks),
+            period="1d",
+            interval="1m",
+            group_by="ticker",
+            progress=False
+        )
 
-    return jsonify(data)
+        result = []
 
-# IMPORTANT for Vercel
-def handler(request):
-    return app(request.environ, lambda *args: None)
+        for symbol in stocks:
+            price = data[symbol]["Close"].dropna().iloc[-1]
+
+            result.append({
+                "name": symbol,
+                "price": round(float(price), 2)
+            })
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+# IMPORTANT FOR VERCEL
+app = app
