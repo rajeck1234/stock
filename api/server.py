@@ -5,6 +5,7 @@ app = Flask(__name__)
 
 portfolio = []
 
+# ---------------- STOCK API ----------------
 @app.route("/api/stocks")
 def stocks():
 
@@ -35,6 +36,7 @@ def stocks():
     return jsonify(result)
 
 
+# ---------------- PORTFOLIO ----------------
 @app.route("/api/portfolio")
 def get_portfolio():
     return jsonify(portfolio)
