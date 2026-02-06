@@ -1,44 +1,101 @@
 from flask import Flask, jsonify, request
 import yfinance as yf
-import pandas as pd
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../public", static_url_path="")
 
-stocks = [
-    "RELIANCE.NS",
-    "TCS.NS",
-    "INFY.NS",
-    "HDFCBANK.NS",
-    "ICICIBANK.NS",
-    "ITC.NS"
-]
+@app.route("/")
+def serve_home():
+    return app.send_static_file("index.html")
 
-@app.route("/stocks")
-def get_stocks():
+# app = Flask(__name__)
 
-    try:
-        data = yf.download(
-            tickers=" ".join(stocks),
-            period="1d",
-            interval="1m",
-            group_by="ticker",
-            progress=False
-        )
+portfolio = []
 
-        result = []
+# @app.route("/")
+# def home():
+#     return "Live Trading Server Running 🚀"
 
-        for symbol in stocks:
-            price = data[symbol]["Close"].dropna().iloc[-1]
+@app.route("/api/stocks")
+def stocks():
+
+    symbols = ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
+
+    result = []
+
+    for symbol in symbols:
+        try:
+            ticker = yf.Ticker(symbol)
+
+            price = ticker.fast_info.get("last_price")
+
+            # fallback if fast_info fails
+            if price is None:
+                price = ticker.info.get("currentPrice")
 
             result.append({
                 "name": symbol,
-                "price": round(float(price), 2)
+                "price": price
             })
 
-        return jsonify(result)
+        except Exception as e:
+            result.append({
+                "name": symbol,
+                "price": None
+            })
 
-    except Exception as e:
-        return jsonify({"error": str(e)})
+    return jsonify(result)
 
-# IMPORTANT FOR VERCEL
-app = app
+# @app.route("/api/stocks")
+# def stocks():
+
+#     symbols = ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
+
+#     result = []
+
+#     for symbol in symbols:
+#         try:
+#             ticker = yf.Ticker(symbol)
+#             price = ticker.fast_info.get("last_price")
+
+#             result.append({
+#                 "name": symbol,
+#                 "price": price
+#             })
+
+#         except:
+#             result.append({
+#                 "name": symbol,
+#                 "price": None
+#             })
+
+#     return jsonify(result)
+
+
+# @app.route("/api/portfolio")
+# def get_portfolio():
+#     return jsonify(portfolio)
+
+
+@app.route("/api/buy", methods=["POST"])
+def buy():
+    data = request.json
+    portfolio.append(data)
+    return jsonify({"status": "bought"})
+
+
+@app.route("/api/sell", methods=["POST"])
+def sell():
+    name = request.json["name"]
+
+    global portfolio
+    portfolio = [p for p in portfolio if p["name"] != name]
+
+    return jsonify({"status": "sold"})
+
+
+def handler(request):
+    return app(request.environ, lambda *args: None)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=3000, debug=True)
